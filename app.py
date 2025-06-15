@@ -1,8 +1,10 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS  # Tambahkan ini
 import requests
 import json
 
 app = Flask(__name__)
+CORS(app)  # Tambahkan ini untuk mengaktifkan CORS untuk semua route
 
 API_KEY = "AIzaSyArYniv9dh8w_iG0PxGzxrRB211HSI-gps"
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={API_KEY}"
