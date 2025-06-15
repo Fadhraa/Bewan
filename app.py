@@ -9,7 +9,7 @@ app = Flask(__name__, static_folder="static")
 CORS(app, resources={r"/chat": {"origins": "*"}})
 
 # ---------- Konfigurasi ----------
-API_KEY = os.getenv("AIzaSyArYniv9dh8w_iG0PxGzxrRB211HSI-gps")              # ← ambil dari ENV!
+API_KEY = "AIzaSyArYniv9dh8w_iG0PxGzxrRB211HSI-gps"            # ← ambil dari ENV!
 GEMINI_URL = (
     f"https://generativelanguage.googleapis.com/v1beta/models/"
     f"gemini-2.0-flash:generateContent?key={API_KEY}"
