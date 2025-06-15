@@ -1,10 +1,18 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS  # Tambahkan ini
+from flask_cors import CORS
 import requests
 import json
 
 app = Flask(__name__)
-CORS(app)  # Tambahkan ini untuk mengaktifkan CORS untuk semua route
+
+# Konfigurasi CORS yang lebih eksplisit
+CORS(app, resources={
+    r"/chat": {
+        "origins": "*",
+        "methods": ["POST", "OPTIONS"],
+        "allow_headers": ["Content-Type"]
+    }
+})
 
 API_KEY = "AIzaSyArYniv9dh8w_iG0PxGzxrRB211HSI-gps"
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={API_KEY}"
@@ -41,8 +49,15 @@ def tanya_ai(pesan_user):
     except Exception:
         return "Terjadi kesalahan:\n" + json.dumps(result, indent=2)
 
-@app.route("/chat", methods=["POST"])
+@app.route("/chat", methods=["POST", "OPTIONS"])
 def chat():
+    if request.method == "OPTIONS":
+        # Handle preflight request
+        response = jsonify({"status": "success"})
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
+        return response
+    
     data = request.get_json()
     if not data or "pesan" not in data:
         return jsonify({"error": "Request harus berisi field 'pesan'"}), 400
@@ -50,7 +65,9 @@ def chat():
     pesan_user = data["pesan"]
     jawaban = tanya_ai(pesan_user)
 
-    return jsonify({"balasan": jawaban})
+    response = jsonify({"balasan": jawaban})
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    return response
 
 if __name__ == "__main__":
     app.run(debug=True)
