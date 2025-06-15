@@ -1,25 +1,20 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-import requests
+import os
 import json
+import requests
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
 
-app = Flask(__name__)
+# ---------- Flask basic ----------
+app = Flask(__name__, static_folder="static")
+CORS(app, resources={r"/chat": {"origins": "*"}})
 
-# Konfigurasi CORS yang lebih eksplisit
-CORS(app, resources={
-    r"/chat": {
-        "origins": "*",
-        "methods": ["POST", "OPTIONS"],
-        "allow_headers": ["Content-Type"]
-    }
-})
-
-API_KEY = "AIzaSyArYniv9dh8w_iG0PxGzxrRB211HSI-gps"
-GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={API_KEY}"
-
-HEADERS = {
-    "Content-Type": "application/json"
-}
+# ---------- Konfigurasi ----------
+API_KEY = os.getenv("AIzaSyArYniv9dh8w_iG0PxGzxrRB211HSI-gps")              # ← ambil dari ENV!
+GEMINI_URL = (
+    f"https://generativelanguage.googleapis.com/v1beta/models/"
+    f"gemini-2.0-flash:generateContent?key={API_KEY}"
+)
+HEADERS = {"Content-Type": "application/json"}
 
 SYSTEM_PROMPT = (
     "Kamu adalah Bewan AI untuk keluarga B1. "
@@ -28,46 +23,36 @@ SYSTEM_PROMPT = (
     "Tugasmu adalah membantu seluruh keluarga B1 dengan sikap ramah dan lemah lembut."
 )
 
-def tanya_ai(pesan_user):
+# ---------- Helper ----------
+def tanya_ai(pesan_user: str) -> str:
     payload = {
-        "contents": [
-            {
-                "role": "user",
-                "parts": [{"text": pesan_user}]
-            }
-        ],
-        "systemInstruction": {
-            "parts": [{"text": SYSTEM_PROMPT}]
-        }
+        "contents": [{"role": "user", "parts": [{"text": pesan_user}]}],
+        "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
     }
-
-    response = requests.post(GEMINI_URL, headers=HEADERS, data=json.dumps(payload))
-    result = response.json()
-    
     try:
-        return result["candidates"][0]["content"]["parts"][0]["text"]
-    except Exception:
-        return "Terjadi kesalahan:\n" + json.dumps(result, indent=2)
+        r = requests.post(GEMINI_URL, headers=HEADERS, data=json.dumps(payload), timeout=25)
+        data = r.json()
+        return data["candidates"][0]["content"]["parts"][0]["text"]
+    except Exception as e:
+        return f"Terjadi kesalahan: {e}"
 
-@app.route("/chat", methods=["POST", "OPTIONS"])
+# ---------- Routes ----------
+@app.route("/")
+@app.route("/index.html")
+def index():
+    # Akan mencari static/index.html
+    return send_from_directory(app.static_folder, "index.html")
+
+@app.route("/chat", methods=["POST"])
 def chat():
-    if request.method == "OPTIONS":
-        # Handle preflight request
-        response = jsonify({"status": "success"})
-        response.headers.add("Access-Control-Allow-Origin", "*")
-        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
-        return response
-    
-    data = request.get_json()
-    if not data or "pesan" not in data:
-        return jsonify({"error": "Request harus berisi field 'pesan'"}), 400
+    data = request.get_json(silent=True) or {}
+    pesan = data.get("pesan")
+    if not pesan:
+        return jsonify({"error": "Field 'pesan' wajib ada"}), 400
+    balasan = tanya_ai(pesan)
+    return jsonify({"balasan": balasan})
 
-    pesan_user = data["pesan"]
-    jawaban = tanya_ai(pesan_user)
-
-    response = jsonify({"balasan": jawaban})
-    response.headers.add("Access-Control-Allow-Origin", "*")
-    return response
-
+# ---------- Entrypoint ----------
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.getenv("PORT", 5000))            # Railway set PORT otomatis
+    app.run(host="0.0.0.0", port=port, debug=False)
